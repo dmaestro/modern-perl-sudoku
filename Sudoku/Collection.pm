@@ -15,7 +15,7 @@ has cells   =>  (
   isa         =>  sub { die 'cells must be initialized as an array-ref!'
                           if not (
                             ref $_[0] eq $REF_ARRAY
-                              and @{ $_[0] } == $SUDOKU_DIMENSION
+                              and @{ $_[0] } <= $SUDOKU_DIMENSION
                           );
                       },
   required    =>  1,
@@ -25,7 +25,8 @@ has rank    =>  (
   is          =>  'ro',
   isa         =>  sub {
                       DLS::MooTypes->Integer->($_[0]);
-                      confess 'Out of range!' if $_[0] < 1 or $_[0] > $SUDOKU_DIMENSION;
+                      confess 'Out of range!'
+                        if $_[0] < 0 or $_[0] > $SUDOKU_DIMENSION - 1;
                   },
   required    =>  1,
 );
@@ -37,6 +38,35 @@ sub BUILDARGS {
     cells =>  $cells,
     @ARGS,
   };
+}
+
+sub BUILD {
+  my ($self) = @_;
+  for my $cell (@{ $self->cells }) {
+    # $cell is an alias for each array slot - modify in place
+    next if $cell->isa($CELL_CLASS);
+    if ($cell->isa(__PACKAGE__)) {
+      my $collection = $cell; #inheriting a cell from another collection
+      $cell = $self->_map_cells($collection);
+    } elsif (defined $cell) {
+      $cell = $CELL_CLASS->new(value => $cell);
+    }
+  }
+  # flatten result
+  $self->cells = [ map { ref eq $REF_ARRAY ? @{ $_ } : $_ } @{ $self->cells };
+}
+
+sub map_cells {
+  my ($self, $other) = @_;
+  confess 'Invalid mapping - identical collection types!'
+    if ref $self eq ref $other;
+  # row to column or column to row method - override for * to square
+  return $other->index($self->rank);
+}
+
+sub index {
+  my ($self, $index) = @_;
+  return $self->cells->[$index];
 }
 
 1;
