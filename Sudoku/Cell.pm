@@ -20,7 +20,7 @@ has value => (
 
 sub set_value {
   my $self = shift;
-  confess 'Once set, value is immutible!' if $self->has_value;
+  confess 'Once set, value is immutable!' if $self->has_value;
   $self->_set_value(@_);
 }
 
