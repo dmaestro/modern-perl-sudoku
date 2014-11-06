@@ -36,4 +36,9 @@ sub BUILD {
   }
 }
 
+sub bitmask {
+  my ($self) = @_;
+  return $self->has_value ? 1 << $self->value : 0 ;
+}
+
 1;
