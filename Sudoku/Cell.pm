@@ -3,6 +3,7 @@ use 5.014;
 use warnings;
 
 use Carp qw(confess);
+use Scalar::Util;
 use Moo;
 use DLS::MooTypes;
 use namespace::clean;
@@ -12,13 +13,18 @@ use Readonly;
 
 Readonly::Scalar  my $SUDOKU_DIMENSION  =>  9;
 
-has value => (
-      is        =>  'rwp',
-      isa       =>  sub {
-                      DLS::MooTypes->Integer->($_[0]);
-                      confess 'Out of range!' if $_[0] < 1 or $_[0] > $SUDOKU_DIMENSION;
-                    },
-      predicate =>  1,
+has value   => (
+  is          =>  'rwp',
+  isa         =>  sub {
+                    DLS::MooTypes->Integer->($_[0]);
+                    confess 'Out of range!' if $_[0] < 1 or $_[0] > $SUDOKU_DIMENSION;
+                  },
+  predicate   =>  1,
+);
+
+has references  => (
+  is          =>  'ro',
+  default     =>  sub { [] },
 );
 
 sub set_value { ## no critic (FinalReturn)
@@ -42,6 +48,16 @@ sub BUILD { ## no critic (FinalReturn)
 sub bitmask {
   my ($self) = @_;
   return $self->has_value ? 1 << $self->value : 0 ;
+}
+
+sub included_in {
+  my ($self, @collections) = @_;
+  my $refs = $self->references;
+  for my $collection (@collections) {
+     push @{ $refs }, $collection;
+     Scalar::Util::weaken( $refs->[-1] );
+  }
+  return $self;
 }
 
 1;

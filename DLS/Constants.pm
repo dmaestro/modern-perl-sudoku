@@ -15,6 +15,18 @@ $EXPORT_TAGS{TINYTEXT}          = [qw(
                                     $SPACE
                                   )];
 
+Readonly::Scalar                our $REF_SCALAR       => ref \q{};
+Readonly::Scalar                our $REF_ARRAY        => ref [];
+Readonly::Scalar                our $REF_HASH         => ref {};
+Readonly::Scalar                our $REF_CODE         => sub {};
+$EXPORT_TAGS{PERLREF}           = [qw(
+                                    $REF_SCALAR
+                                    $REF_ARRAY
+                                    $REF_HASH
+                                    $REF_CODE
+                                  )];
+
+
 for my $tags (values %EXPORT_TAGS) {
   push @EXPORT_OK, @{$tags};
 }
