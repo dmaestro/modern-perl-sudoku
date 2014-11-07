@@ -2,22 +2,27 @@ package Sudoku::Collection;
 use 5.014;
 use warnings;
 
+use Carp qw(confess);
+use Sudoku::Cell;
+
 use Moo;
-use namespace::Clean;
+use namespace::clean;
 
 use DLS::Constants qw(:PERLREF);
 use Readonly;
 
 Readonly::Scalar  my $SUDOKU_DIMENSION  =>  9;
+Readonly::Scalar  my $CELL_CLASS        =>  qw(Sudoku::Cell);
 
-has cells   =>  (
-  is          =>  'ro',
+has _cells   =>  (
+  is          =>  'rw',
   isa         =>  sub { die 'cells must be initialized as an array-ref!'
                           if not (
                             ref $_[0] eq $REF_ARRAY
                               and @{ $_[0] } <= $SUDOKU_DIMENSION
                           );
                       },
+  init_arg    =>  'cells',
   required    =>  1,
 );
 
@@ -36,27 +41,41 @@ sub BUILDARGS {
   return {
     rank  =>  $rank,
     cells =>  $cells,
-    @ARGS,
+    @args,
   };
 }
 
 sub BUILD {
   my ($self) = @_;
-  for my $cell (@{ $self->cells }) {
+  for my $cell (@{$self->_cells}) {
     # $cell is an alias for each array slot - modify in place
     next if $cell->isa($CELL_CLASS);
     if ($cell->isa(__PACKAGE__)) {
-      my $collection = $cell; #inheriting a cell from another collection
+      my $collection = $cell; #inheriting cell(s) from another collection
       $cell = $self->_map_cells($collection);
     } elsif (defined $cell) {
-      $cell = $CELL_CLASS->new(value => $cell);
+      $cell = $CELL_CLASS->new($cell ? (value => $cell) : ());
     }
   }
   # flatten result
-  $self->cells = [ map { ref eq $REF_ARRAY ? @{ $_ } : $_ } @{ $self->cells };
+  if ($self->cells != $SUDOKU_DIMENSION) {
+    $self->_cells( [ map { ref eq $REF_ARRAY ? @{ $_ } : $_ } $self->cells ] );
+  }
+  confess 'Failed to initialize all cells!'
+    if $self->cells != $SUDOKU_DIMENSION;
+  for my $cell ($self->cells) {
+    $cell->included_in($self);
+  }
 }
 
-sub map_cells {
+sub cells {
+  my ($self, @args) = @_;
+  confess 'Setting read-only attribute not allowed'
+    if @args;
+  return @{ $self->_cells };
+}
+
+sub _map_cells {
   my ($self, $other) = @_;
   confess 'Invalid mapping - identical collection types!'
     if ref $self eq ref $other;
@@ -66,7 +85,21 @@ sub map_cells {
 
 sub index {
   my ($self, $index) = @_;
-  return $self->cells->[$index];
+  return $self->_cells->[$index];
+}
+
+sub status {
+  my ($self) = @_;
+  my $stat = 0x3ff;
+  for my $cell ($self->cells) {
+    my $mask = $cell->bitmask;
+    confess 'Duplicate cell values in '
+            . ( ref $self =~ s/^.*:://r )
+            . ', rank ' . $self->rank
+      if $cell->has_value and $mask & $stat;
+    $stat &= ~$mask;
+  }
+  return $stat;
 }
 
 1;
